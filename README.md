@@ -17,11 +17,11 @@ Aplicação web interativa desenvolvida em Python com **Streamlit**, projetada p
 2. Crie e ative um ambiente virtual (.venv):
    ```bash
    python -m venv .venv
-  .venv\Scripts\activate  # No Windows
+   .venv\Scripts\activate  # No Windows
 
 3. Instale as dependências:
    ```bash
-  pip install -r requirements.txt
+   pip install -r requirements.txt
 
 4. Execute o sistema:
   ```bash
