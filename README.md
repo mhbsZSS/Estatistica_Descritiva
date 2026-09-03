@@ -11,7 +11,8 @@ Aplicação web interativa desenvolvida em Python com **Streamlit**, projetada p
 ## 🛠️ Como Executar o Projeto Localmente
 1. Clone este repositório:
    ```bash
-   git clone [https://github.com/SEU-USUARIO/nome-do-repositorio.git](https://github.com/SEU-USUARIO/nome-do-repositorio.git)
+   git clone [https://github.com/mhbsZSS/Estatistica_Descritiva.git](https://github.com/mhbsZSS/Estatistica_Descritiva.git)
+   cd Estatistica_Descritiva
 
 2. Crie e ative um ambiente virtual (.venv):
    ```bash
