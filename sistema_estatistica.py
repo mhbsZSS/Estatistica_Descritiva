@@ -3,17 +3,21 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import gaussian_kde, norm, t
+from scipy.stats import gaussian_kde, norm, t, shapiro, probplot
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Sistema Estatístico Completo", layout="wide")
-st.title("📊 Sistema Estatístico: Descritiva, Inferência & Testes de Hipóteses")
-st.write("Plataforma completa para análise descritiva, intervalos de confiança e testes paramétricos (Z e t).")
+st.title("📊 Sistema Estatístico: Descritiva, Inferência & Normalidade")
+st.write("Plataforma para análise descritiva, inferência, testes paramétricos e verificação de normalidade.")
 
 # 2. Navegação Principal por Módulos
 modulo = st.sidebar.selectbox(
     "Escolha o Módulo de Análise:",
-    ("1. Estatística Descritiva & IC (Dados ou Sumário)", "2. Testes de Hipóteses (Z e t)")
+    (
+        "1. Estatística Descritiva & IC (Dados ou Sumário)", 
+        "2. Testes de Hipóteses (Z e t)",
+        "3. Teste de Normalidade (Shapiro-Wilk)"
+    )
 )
 
 # ==========================================
@@ -69,7 +73,6 @@ if modulo == "1. Estatística Descritiva & IC (Dados ou Sumário)":
         cv = (desvio_padrao / media) * 100
         moda_texto = "N/A (Exige dados brutos)"
 
-    # --- EXIBIÇÃO DE RESULTADOS E GRÁFICOS DO MÓDULO 1 ---
     if n is not None and media is not None:
         st.success(f"Amostra ativa configurada com n = {n}")
         st.subheader("Resumo Estatístico (Precisão: 4 Casas Decimais)")
@@ -107,11 +110,10 @@ if modulo == "1. Estatística Descritiva & IC (Dados ou Sumário)":
             })
         st.dataframe(pd.DataFrame(ic_dados), use_container_width=True)
 
-        # Gráficos (Só aparecem se houver dados brutos)
         if tem_dados_brutos:
             st.subheader("Visualização Gráfica")
             sns.set_theme(style="whitegrid")
-            nome_variavel = st.text_input("Nome da variável para os eixos:", value="Valor")
+            nome_variavel = st.text_input("Nome da variável para os eixos:", value="Valor", key="var_mod1")
             
             tab1, tab2, tab3 = st.tabs(["Histograma (KDE)", "Boxplot", "Gráfico de Dispersão"])
 
@@ -143,7 +145,7 @@ if modulo == "1. Estatística Descritiva & IC (Dados ou Sumário)":
 # ==========================================
 # MÓDULO 2: TESTES DE HIPÓTESES (Z e t)
 # ==========================================
-else:
+elif modulo == "2. Testes de Hipóteses (Z e t)":
     st.subheader("🧪 Módulo de Testes de Hipóteses Paramétricos")
     tipo_teste = st.selectbox(
         "Selecione o Teste Estatístico:",
@@ -292,3 +294,76 @@ else:
             sc1.metric("Estatística t (Welch)", f"{t_calc:.4f}")
             sc2.metric("P-Valor", f"{p_val:.4f}")
             sc3.metric("Conclusão", "Rejeita H0" if p_val < alpha_nivel else "Não Rejeita H0")
+
+# ==========================================
+# MÓDULO 3: TESTE DE NORMALIDADE (SHAPIRO-WILK)
+# ==========================================
+elif modulo == "3. Teste de Normalidade (Shapiro-Wilk)":
+    st.subheader("📈 Verificação de Normalidade (Shapiro-Wilk)")
+    st.write("Insira os dados brutos da amostra para verificar se seguem uma distribuição normal, gerando as estatísticas $W$ e $p$, além dos gráficos.")
+
+    entrada_normalidade = st.text_area(
+        "Insira os dados da amostra (separados por ponto e vírgula):", 
+        value="12.5; 13.1; 12.8; 14.3; 13.7; 15.2; 12.0; 12.9; 13.5; 14.8",
+        key="shapiro_input"
+    )
+    
+    alpha_normalidade = st.selectbox("Nível de Significância ($\alpha$):", [0.01, 0.05, 0.10], index=1, key="shapiro_alpha")
+
+    if entrada_normalidade:
+        try:
+            dados_shapiro = [float(x.strip()) for x in entrada_normalidade.replace(',', '.').split(';') if x.strip()]
+            n_shapiro = len(dados_shapiro)
+            
+            if n_shapiro < 3:
+                st.warning("O teste de Shapiro-Wilk requer pelo menos 3 observações.")
+            else:
+                stat_w, p_valor_sw = shapiro(dados_shapiro)
+                
+                st.markdown("---")
+                st.markdown("### a) Hipóteses do Teste")
+                st.latex(r"H_0: \text{Os dados seguem uma distribuição Normal.}")
+                st.latex(r"H_1: \text{Os dados NÃO seguem uma distribuição Normal.}")
+                
+                col_sw1, col_sw2, col_sw3 = st.columns(3)
+                col_sw1.metric("b) Estatística W", f"{stat_w:.4f}")
+                col_sw2.metric("c) P-Valor", f"{p_valor_sw:.4f}")
+                
+                rejeita_sw = p_valor_sw < alpha_normalidade
+                conclusao = "Não Rejeita $H_0$ (Aprox. Normais)" if not rejeita_sw else "Rejeita $H_0$ (Não Normais)"
+                col_sw3.metric("d) Conclusão", conclusao)
+                
+                if not rejeita_sw:
+                    st.success(f"**Resposta (d):** Como o p-valor ({p_valor_sw:.4f}) é maior que $\\alpha$ ({alpha_normalidade}), os dados **podem ser considerados aproximadamente normais**.")
+                else:
+                    st.error(f"**Resposta (d):** Como o p-valor ({p_valor_sw:.4f}) é menor que $\\alpha$ ({alpha_normalidade}), os dados **NÃO podem ser considerados aproximadamente normais**.")
+
+                st.markdown("---")
+                st.subheader("e) Verificação Gráfica")
+                sns.set_theme(style="whitegrid")
+                
+                tab_g1, tab_g2, tab_g3 = st.tabs(["Gráfico Q-Q", "Histograma", "Boxplot"])
+                
+                with tab_g1:
+                    fig_qq, ax_qq = plt.subplots(figsize=(8, 4))
+                    probplot(dados_shapiro, dist="norm", plot=ax_qq)
+                    ax_qq.set_title("Gráfico Q-Q (Quantile-Quantile)")
+                    st.pyplot(fig_qq)
+                    st.caption("Se os pontos estiverem próximos à linha vermelha, isso indica normalidade.")
+                    
+                with tab_g2:
+                    fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
+                    sns.histplot(dados_shapiro, kde=True, color='#2c7fb8', ax=ax_hist)
+                    ax_hist.set_title("Histograma com Curva de Distribuição")
+                    st.pyplot(fig_hist)
+                    st.caption("Uma curva em forma de 'sino' indica normalidade.")
+                    
+                with tab_g3:
+                    fig_box, ax_box = plt.subplots(figsize=(8, 4))
+                    sns.boxplot(x=dados_shapiro, color='#7fcdbb', ax=ax_box)
+                    ax_box.set_title("Boxplot")
+                    st.pyplot(fig_box)
+                    st.caption("Um boxplot simétrico, sem valores atípicos (outliers) severos, apoia a normalidade.")
+
+        except Exception as e:
+            st.error(f"Erro no processamento dos dados: {e}")
