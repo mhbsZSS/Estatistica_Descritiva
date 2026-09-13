@@ -3,12 +3,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import gaussian_kde, norm, t, shapiro, probplot
+from scipy.stats import gaussian_kde, norm, t, shapiro, probplot, levene
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Sistema Estatístico Completo", layout="wide")
-st.title("📊 Sistema Estatístico: Descritiva, Inferência & Normalidade")
-st.write("Plataforma para análise descritiva, inferência, testes paramétricos e verificação de normalidade.")
+st.title("📊 Sistema Estatístico: Descritiva, Inferência, Normalidade & Homogeneidade")
+st.write("Plataforma para análise descritiva, inferência, testes paramétricos e pressupostos (Shapiro-Wilk e Levene).")
 
 # 2. Navegação Principal por Módulos
 modulo = st.sidebar.selectbox(
@@ -16,7 +16,7 @@ modulo = st.sidebar.selectbox(
     (
         "1. Estatística Descritiva & IC (Dados ou Sumário)", 
         "2. Testes de Hipóteses (Z e t)",
-        "3. Teste de Normalidade (Shapiro-Wilk)"
+        "3. Normalidade & Homogeneidade (Shapiro e Levene)"
     )
 )
 
@@ -296,74 +296,106 @@ elif modulo == "2. Testes de Hipóteses (Z e t)":
             sc3.metric("Conclusão", "Rejeita H0" if p_val < alpha_nivel else "Não Rejeita H0")
 
 # ==========================================
-# MÓDULO 3: TESTE DE NORMALIDADE (SHAPIRO-WILK)
+# MÓDULO 3: NORMALIDADE E HOMOGENEIDADE
 # ==========================================
-elif modulo == "3. Teste de Normalidade (Shapiro-Wilk)":
-    st.subheader("📈 Verificação de Normalidade (Shapiro-Wilk)")
-    st.write("Insira os dados brutos da amostra para verificar se seguem uma distribuição normal, gerando as estatísticas $W$ e $p$, além dos gráficos.")
+elif modulo == "3. Normalidade & Homogeneidade (Shapiro e Levene)":
+    st.subheader("📈 Normalidade (Shapiro-Wilk) e Homogeneidade (Levene)")
+    tipo_amostra = st.radio("Selecione a estrutura dos dados:", ("1 Amostra", "2 Amostras Independentes (Comparação)"), horizontal=True)
+    alpha_nivel = st.selectbox("Nível de Significância (α):", [0.01, 0.05, 0.10], index=1)
 
-    entrada_normalidade = st.text_area(
-        "Insira os dados da amostra (separados por ponto e vírgula):", 
-        value="12.5; 13.1; 12.8; 14.3; 13.7; 15.2; 12.0; 12.9; 13.5; 14.8",
-        key="shapiro_input"
-    )
-    
-    alpha_normalidade = st.selectbox("Nível de Significância ($\alpha$):", [0.01, 0.05, 0.10], index=1, key="shapiro_alpha")
+    if tipo_amostra == "1 Amostra":
+        entrada_amostra = st.text_area("Insira os dados da amostra (separados por ponto e vírgula):", value="12.5; 13.1; 12.8; 14.3; 13.7; 15.2; 12.0; 12.9; 13.5; 14.8")
+        
+        if st.button("Executar Teste de Normalidade"):
+            try:
+                dados = [float(x.strip()) for x in entrada_amostra.replace(',', '.').split(';') if x.strip()]
+                if len(dados) >= 3:
+                    stat_w, p_valor_sw = shapiro(dados)
+                    st.markdown("### Teste de Shapiro-Wilk")
+                    st.latex(r"H_0: \text{A distribuição é Normal.} \quad H_1: \text{A distribuição NÃO é Normal.}")
+                    
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Estatística W", f"{stat_w:.4f}")
+                    c2.metric("P-Valor", f"{p_valor_sw:.4f}")
+                    c3.metric("Conclusão", "Rejeita H0 (Não Normal)" if p_valor_sw < alpha_nivel else "Não Rejeita H0 (Normal)")
+                    
+                    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+                    sns.histplot(dados, kde=True, ax=axes[0], color='#2c7fb8')
+                    axes[0].set_title("Histograma")
+                    probplot(dados, dist="norm", plot=axes[1])
+                    axes[1].set_title("Gráfico Q-Q")
+                    st.pyplot(fig)
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    if entrada_normalidade:
-        try:
-            dados_shapiro = [float(x.strip()) for x in entrada_normalidade.replace(',', '.').split(';') if x.strip()]
-            n_shapiro = len(dados_shapiro)
-            
-            if n_shapiro < 3:
-                st.warning("O teste de Shapiro-Wilk requer pelo menos 3 observações.")
-            else:
-                stat_w, p_valor_sw = shapiro(dados_shapiro)
+    else:
+        col_in1, col_in2 = st.columns(2)
+        with col_in1:
+            amostra_nome1 = st.text_input("Nome Amostra 1:", value="Servidor A")
+            entrada_amostra1 = st.text_area("Dados Amostra 1:", value="15.2; 14.8; 15.5; 14.9; 15.1; 15.3")
+        with col_in2:
+            amostra_nome2 = st.text_input("Nome Amostra 2:", value="Servidor B")
+            entrada_amostra2 = st.text_area("Dados Amostra 2:", value="15.8; 19.2; 15.9; 16.1; 21.4; 16.0")
+
+        if st.button("Executar Testes (Shapiro & Levene)"):
+            try:
+                dados1 = [float(x.strip()) for x in entrada_amostra1.replace(',', '.').split(';') if x.strip()]
+                dados2 = [float(x.strip()) for x in entrada_amostra2.replace(',', '.').split(';') if x.strip()]
                 
-                st.markdown("---")
-                st.markdown("### a) Hipóteses do Teste")
-                st.latex(r"H_0: \text{Os dados seguem uma distribuição Normal.}")
-                st.latex(r"H_1: \text{Os dados NÃO seguem uma distribuição Normal.}")
-                
-                col_sw1, col_sw2, col_sw3 = st.columns(3)
-                col_sw1.metric("b) Estatística W", f"{stat_w:.4f}")
-                col_sw2.metric("c) P-Valor", f"{p_valor_sw:.4f}")
-                
-                rejeita_sw = p_valor_sw < alpha_normalidade
-                conclusao = "Não Rejeita $H_0$ (Aprox. Normais)" if not rejeita_sw else "Rejeita $H_0$ (Não Normais)"
-                col_sw3.metric("d) Conclusão", conclusao)
-                
-                if not rejeita_sw:
-                    st.success(f"**Resposta (d):** Como o p-valor ({p_valor_sw:.4f}) é maior que $\\alpha$ ({alpha_normalidade}), os dados **podem ser considerados aproximadamente normais**.")
+                if len(dados1) >= 3 and len(dados2) >= 3:
+                    st.write("---")
+                    st.subheader("1. Teste de Normalidade (Shapiro-Wilk)")
+                    w1, p1 = shapiro(dados1)
+                    w2, p2 = shapiro(dados2)
+                    
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric(f"W ({amostra_nome1})", f"{w1:.4f}")
+                    c2.metric(f"P-Valor", f"{p1:.4f}", "Normal" if p1 >= alpha_nivel else "Não Normal", delta_color="off")
+                    c3.metric(f"W ({amostra_nome2})", f"{w2:.4f}")
+                    c4.metric(f"P-Valor", f"{p2:.4f}", "Normal" if p2 >= alpha_nivel else "Não Normal", delta_color="off")
+
+                    st.write("---")
+                    st.subheader("2. Teste de Homogeneidade (Levene)")
+                    st.latex(r"H_0: \text{As variâncias são iguais.} \quad H_1: \text{As variâncias são diferentes.}")
+                    stat_lev, p_lev = levene(dados1, dados2)
+                    
+                    cl1, cl2, cl3 = st.columns(3)
+                    cl1.metric("Estatística de Levene (W)", f"{stat_lev:.4f}")
+                    cl2.metric("P-Valor", f"{p_lev:.4f}")
+                    cl3.metric("Conclusão", "Rejeita H0 (Variâncias Diferentes)" if p_lev < alpha_nivel else "Não Rejeita H0 (Variâncias Iguais)")
+
+                    st.write("---")
+                    st.subheader("3. Análise Visual Separada e Comparativa")
+                    sns.set_theme(style="whitegrid")
+                    
+                    tab_h, tab_q, tab_b = st.tabs(["Histogramas Separados", "Gráficos Q-Q Separados", "Boxplots Comparativos"])
+                    
+                    with tab_h:
+                        fig_h, axes_h = plt.subplots(1, 2, figsize=(12, 4))
+                        sns.histplot(dados1, kde=True, ax=axes_h[0], color='#2c7fb8')
+                        axes_h[0].set_title(f"Histograma: {amostra_nome1}")
+                        sns.histplot(dados2, kde=True, ax=axes_h[1], color='#e34a33')
+                        axes_h[1].set_title(f"Histograma: {amostra_nome2}")
+                        st.pyplot(fig_h)
+                        
+                    with tab_q:
+                        fig_q, axes_q = plt.subplots(1, 2, figsize=(12, 4))
+                        probplot(dados1, dist="norm", plot=axes_q[0])
+                        axes_q[0].set_title(f"Q-Q: {amostra_nome1}")
+                        probplot(dados2, dist="norm", plot=axes_q[1])
+                        axes_q[1].set_title(f"Q-Q: {amostra_nome2}")
+                        st.pyplot(fig_q)
+                        
+                    with tab_b:
+                        fig_b, ax_b = plt.subplots(figsize=(8, 5))
+                        df_comp = pd.DataFrame({
+                            "Tempo": dados1 + dados2,
+                            "Servidor": [amostra_nome1]*len(dados1) + [amostra_nome2]*len(dados2)
+                        })
+                        sns.boxplot(data=df_comp, x="Servidor", y="Tempo", palette=["#2c7fb8", "#e34a33"], ax=ax_b)
+                        ax_b.set_title("Boxplots Comparativos de Tempo de Resposta")
+                        st.pyplot(fig_b)
                 else:
-                    st.error(f"**Resposta (d):** Como o p-valor ({p_valor_sw:.4f}) é menor que $\\alpha$ ({alpha_normalidade}), os dados **NÃO podem ser considerados aproximadamente normais**.")
-
-                st.markdown("---")
-                st.subheader("e) Verificação Gráfica")
-                sns.set_theme(style="whitegrid")
-                
-                tab_g1, tab_g2, tab_g3 = st.tabs(["Gráfico Q-Q", "Histograma", "Boxplot"])
-                
-                with tab_g1:
-                    fig_qq, ax_qq = plt.subplots(figsize=(8, 4))
-                    probplot(dados_shapiro, dist="norm", plot=ax_qq)
-                    ax_qq.set_title("Gráfico Q-Q (Quantile-Quantile)")
-                    st.pyplot(fig_qq)
-                    st.caption("Se os pontos estiverem próximos à linha vermelha, isso indica normalidade.")
-                    
-                with tab_g2:
-                    fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
-                    sns.histplot(dados_shapiro, kde=True, color='#2c7fb8', ax=ax_hist)
-                    ax_hist.set_title("Histograma com Curva de Distribuição")
-                    st.pyplot(fig_hist)
-                    st.caption("Uma curva em forma de 'sino' indica normalidade.")
-                    
-                with tab_g3:
-                    fig_box, ax_box = plt.subplots(figsize=(8, 4))
-                    sns.boxplot(x=dados_shapiro, color='#7fcdbb', ax=ax_box)
-                    ax_box.set_title("Boxplot")
-                    st.pyplot(fig_box)
-                    st.caption("Um boxplot simétrico, sem valores atípicos (outliers) severos, apoia a normalidade.")
-
-        except Exception as e:
-            st.error(f"Erro no processamento dos dados: {e}")
+                    st.warning("Ambas as amostras precisam ter no mínimo 3 observações.")
+            except Exception as e:
+                st.error(f"Erro: Verifique se os dados contêm apenas números separados por ponto e vírgula. Detalhe: {e}")
